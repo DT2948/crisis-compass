@@ -1,0 +1,123 @@
+@import "leaflet/dist/leaflet.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.leaflet-pane,
+.leaflet-tile,
+.leaflet-marker-icon,
+.leaflet-marker-shadow,
+.leaflet-tile-container,
+.leaflet-pane > svg,
+.leaflet-pane > canvas,
+.leaflet-zoom-box,
+.leaflet-image-layer,
+.leaflet-layer {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+.leaflet-container img {
+  max-width: none !important;
+  max-height: none !important;
+  width: auto !important;
+  height: auto !important;
+}
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body {
+  min-height: 100%;
+  margin: 0;
+  background:
+    radial-gradient(circle at top left, rgba(44, 111, 183, 0.12), transparent 34%),
+    radial-gradient(circle at top right, rgba(216, 92, 43, 0.14), transparent 30%),
+    linear-gradient(180deg, #f4efe4 0%, #efe5d0 100%);
+  color: #1f2933;
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+body {
+  overflow: hidden;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+* {
+  box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: #c9b999 transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: #c9b999;
+  border-radius: 999px;
+}
+
+.leaflet-container {
+  height: 100% !important;
+  width: 100% !important;
+  background: #dbe9f4;
+}
+
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  background: #fffaf0 !important;
+  color: #1f2933 !important;
+  border: 1px solid #d3c6ac !important;
+  box-shadow: 0 14px 36px rgba(31, 41, 51, 0.12) !important;
+}
+
+.crisis-marker {
+  align-items: center;
+  border-radius: 999px;
+  border: 3px solid rgba(255, 250, 240, 0.92);
+  box-shadow: 0 10px 24px rgba(31, 41, 51, 0.2);
+  display: flex;
+  font-size: 14px;
+  font-weight: 700;
+  height: 30px;
+  justify-content: center;
+  width: 30px;
+}
+
+.crisis-marker.flood {
+  background: #2c6fb7;
+}
+
+.crisis-marker.wildfire {
+  background: #d85c2b;
+}
+
+.crisis-marker.health_emergency {
+  background: #8e3b8a;
+}
+
+.crisis-marker.storm {
+  background: #4a7c59;
+}
+
+.crisis-marker.other {
+  background: #6b7280;
+}
+
+.crisis-marker.is-selected {
+  transform: scale(1.1);
+}

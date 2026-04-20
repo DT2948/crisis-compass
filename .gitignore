@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.pyc
+venv/
+*.db
+*.db-journal
+*.tmp
+.env
+*.env
+backend/.env
+uploads/.env
+backend/uploads/
+web/.env.local
+
+# Android
+mobile/
+mobile/android/.gradle/
+mobile/android/build/
+mobile/android/app/build/
+mobile/android/.idea/
+mobile/android/local.properties
+*.apk
+
+# Node (for later)
+web/node_modules/
+web/.next/
+web/tsconfig.tsbuildinfo
+
+# IDE
+.idea/
+.vscode/
+*.iml
