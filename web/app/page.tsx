@@ -4,14 +4,17 @@ import dynamic from "next/dynamic";
 import { useState } from "react";
 
 import { CrisisFeed } from "@/components/CrisisFeed";
-import { GapAlertPanel } from "@/components/GapAlertPanel";
 import { Header } from "@/components/Header";
-import { ResponseTrackerPanel } from "@/components/ResponseTrackerPanel";
 import { StatusBar } from "@/components/StatusBar";
 import { useCrisisDashboard } from "@/hooks/useCrisisDashboard";
 
 const CrisisMap = dynamic(() => import("@/components/Map"), {
   ssr: false,
+  loading: () => (
+    <div className="absolute inset-0 flex items-center justify-center border border-line bg-panel text-sm text-textMuted">
+      Loading map...
+    </div>
+  ),
 });
 
 export default function DashboardPage() {
@@ -24,64 +27,72 @@ export default function DashboardPage() {
     autoRefresh,
     setAutoRefresh,
     lastUpdatedAt,
+    highlightedIds,
     simulateGap,
+    refresh,
   } = useCrisisDashboard();
   const [selectedCrisisId, setSelectedCrisisId] = useState<string | null>(null);
 
   const selectedCrisis =
     crises.find((crisis) => crisis.id === selectedCrisisId) ?? crises[0] ?? null;
 
-  return (
-    <main className="h-screen overflow-hidden px-4 py-4 text-ink">
-      <div className="mx-auto flex h-full max-w-[1720px] flex-col overflow-hidden rounded-[28px] border border-line/80 bg-panel/80 shadow-card backdrop-blur">
-        <Header
-          autoRefresh={autoRefresh}
-          refreshing={refreshing}
-          activeCount={crises.length}
-          selectedCrisis={selectedCrisis}
-          onToggleAutoRefresh={setAutoRefresh}
-          onSimulateGap={() => selectedCrisis && simulateGap(selectedCrisis.id)}
-        />
+  function handleSelectCrisis(id: string) {
+    setSelectedCrisisId((current) => (current === id ? null : id));
+  }
 
-        <section className="grid min-h-0 flex-1 gap-4 overflow-hidden border-t border-line/70 p-4 lg:grid-cols-[330px_minmax(0,1fr)_380px]">
-          <div className="min-h-0 overflow-hidden">
+  return (
+    <main className="h-screen overflow-hidden bg-transparent px-0 py-0 text-textPrimary">
+      <div className="mx-auto flex h-full max-w-[1800px] flex-col gap-0 overflow-hidden">
+        <div className="shrink-0">
+          <Header
+            autoRefresh={autoRefresh}
+            onToggleAutoRefresh={setAutoRefresh}
+            crisisCount={crises.length}
+            refreshing={refreshing}
+            selectedCrisis={selectedCrisis}
+            onSimulateGap={() => selectedCrisis && simulateGap(selectedCrisis.id)}
+            onRefresh={refresh}
+          />
+        </div>
+
+        <section className="flex min-h-0 flex-1 flex-col gap-0 overflow-hidden lg:flex-row">
+          <div className="relative min-h-[42vh] flex-1 overflow-hidden lg:min-h-0">
+            <div className="absolute inset-0">
+              <CrisisMap
+                crises={crises}
+                selectedCrisisId={selectedCrisis?.id ?? null}
+                onSelectCrisis={handleSelectCrisis}
+              />
+            </div>
+            {loading ? (
+              <div className="pointer-events-none absolute inset-x-3 top-3 border border-line bg-ink/90 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-textMuted backdrop-blur">
+                Connecting to live crisis map...
+              </div>
+            ) : null}
+            {error ? (
+              <div className="pointer-events-none absolute inset-x-3 top-14 border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger backdrop-blur">
+                {error}
+              </div>
+            ) : null}
+          </div>
+
+          <div className="min-h-0 w-full overflow-hidden lg:w-[380px] xl:w-[32%]">
             <CrisisFeed
               crises={crises}
               selectedCrisisId={selectedCrisis?.id ?? null}
-              onSelectCrisis={setSelectedCrisisId}
+              highlightedIds={highlightedIds}
+              onSelectCrisis={handleSelectCrisis}
             />
-          </div>
-
-          <div className="grid min-h-0 gap-4 overflow-hidden lg:grid-rows-[minmax(0,1fr)_220px]">
-            <div className="relative min-h-[360px] overflow-hidden rounded-[24px] border border-line/70 bg-panelStrong">
-              <div className="absolute inset-0">
-                <CrisisMap
-                  crises={crises}
-                  selectedCrisisId={selectedCrisis?.id ?? null}
-                  onSelectCrisis={setSelectedCrisisId}
-                />
-              </div>
-              {loading ? (
-                <div className="pointer-events-none absolute left-4 top-4 rounded-full border border-line bg-panel px-4 py-2 text-xs uppercase tracking-[0.22em] text-muted">
-                  Loading Pennsylvania live view
-                </div>
-              ) : null}
-              {error ? (
-                <div className="pointer-events-none absolute bottom-4 left-4 right-4 rounded-2xl border border-gapFlagged/30 bg-white/85 px-4 py-3 text-sm text-gapFlagged">
-                  {error}
-                </div>
-              ) : null}
-            </div>
-
-            <GapAlertPanel alerts={gapAlerts} />
-          </div>
-
-          <div className="min-h-0 overflow-hidden">
-            <ResponseTrackerPanel crisis={selectedCrisis} />
           </div>
         </section>
 
-        <StatusBar lastUpdatedAt={lastUpdatedAt} totalAlerts={gapAlerts.length} />
+        <div className="shrink-0">
+          <StatusBar
+            lastUpdatedAt={lastUpdatedAt}
+            autoRefresh={autoRefresh}
+            gapAlertCount={gapAlerts.length}
+          />
+        </div>
       </div>
     </main>
   );

@@ -19,6 +19,23 @@
   top: 0;
 }
 
+.leaflet-container {
+  overflow: hidden;
+  font-size: 12px;
+}
+
+.leaflet-tile,
+.leaflet-marker-icon,
+.leaflet-marker-shadow {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.leaflet-tile-container {
+  pointer-events: none;
+}
+
 .leaflet-container img {
   max-width: none !important;
   max-height: none !important;
@@ -26,23 +43,27 @@
   height: auto !important;
 }
 
+.leaflet-container svg {
+  max-width: none !important;
+  max-height: none !important;
+}
+
 :root {
-  color-scheme: light;
+  color-scheme: dark;
 }
 
 html,
 body {
+  height: 100%;
   min-height: 100%;
-  margin: 0;
-  background:
-    radial-gradient(circle at top left, rgba(44, 111, 183, 0.12), transparent 34%),
-    radial-gradient(circle at top right, rgba(216, 92, 43, 0.14), transparent 30%),
-    linear-gradient(180deg, #f4efe4 0%, #efe5d0 100%);
-  color: #1f2933;
-  font-family: Georgia, "Times New Roman", serif;
+  overflow: hidden;
+  background: #1e1724;
+  color: #ede8ed;
 }
 
 body {
+  margin: 0;
+  font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   overflow: hidden;
 }
 
@@ -53,13 +74,106 @@ a {
 
 * {
   box-sizing: border-box;
+}
+
+.leaflet-container {
+  height: 100% !important;
+  width: 100% !important;
+  background: #2c2230;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 18% 14%, rgba(47, 140, 150, 0.06), transparent 24%),
+    radial-gradient(circle at 82% 10%, rgba(47, 140, 150, 0.035), transparent 18%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.015), transparent 30%);
+}
+
+.map-tone-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(30, 23, 36, 0.08), rgba(30, 23, 36, 0.14)),
+    linear-gradient(90deg, rgba(44, 34, 48, 0.08), rgba(44, 34, 48, 0.02) 18%, rgba(44, 34, 48, 0.02) 82%, rgba(44, 34, 48, 0.08));
+  z-index: 400;
+}
+
+.leaflet-popup-content-wrapper {
+  background: #3a2e39 !important;
+  color: #ede8ed !important;
+  border: 1px solid #4e3e50 !important;
+  border-radius: 6px !important;
+  box-shadow: none !important;
+}
+
+.leaflet-popup-tip {
+  background: #3a2e39 !important;
+  border: 1px solid #4e3e50 !important;
+}
+
+.leaflet-popup-content {
+  color: #ede8ed !important;
+  font-size: 12px !important;
+  line-height: 1.4 !important;
+  margin: 6px 8px !important;
+}
+
+.leaflet-popup-close-button {
+  color: #a89ba8 !important;
+}
+
+.leaflet-popup-close-button:hover {
+  color: #ede8ed !important;
+}
+
+.veriti-marker-soft-pulse {
+  animation: marker-soft-pulse 2.4s ease-in-out infinite;
+}
+
+.veriti-card-flash {
+  animation: flash 2.2s ease-in-out;
+}
+
+@keyframes marker-soft-pulse {
+  0% {
+    opacity: 0.06;
+  }
+  50% {
+    opacity: 0.78;
+  }
+  100% {
+    opacity: 0.06;
+  }
+}
+
+@keyframes flash {
+  0% {
+    box-shadow: 0 0 0 rgba(47, 140, 150, 0);
+    border-color: rgba(47, 140, 150, 0.24);
+  }
+  40% {
+    box-shadow: 0 0 0 1px rgba(57, 168, 181, 0.78), 0 0 20px rgba(47, 140, 150, 0.24);
+    border-color: rgba(57, 168, 181, 0.92);
+  }
+  100% {
+    box-shadow: 0 0 0 rgba(47, 140, 150, 0);
+    border-color: rgba(47, 140, 150, 0.24);
+  }
+}
+
+* {
   scrollbar-width: thin;
-  scrollbar-color: #c9b999 transparent;
+  scrollbar-color: #4e3e50 transparent;
 }
 
 *::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 *::-webkit-scrollbar-track {
@@ -67,57 +181,6 @@ a {
 }
 
 *::-webkit-scrollbar-thumb {
-  background: #c9b999;
+  background: #4e3e50;
   border-radius: 999px;
-}
-
-.leaflet-container {
-  height: 100% !important;
-  width: 100% !important;
-  background: #dbe9f4;
-}
-
-.leaflet-popup-content-wrapper,
-.leaflet-popup-tip {
-  background: #fffaf0 !important;
-  color: #1f2933 !important;
-  border: 1px solid #d3c6ac !important;
-  box-shadow: 0 14px 36px rgba(31, 41, 51, 0.12) !important;
-}
-
-.crisis-marker {
-  align-items: center;
-  border-radius: 999px;
-  border: 3px solid rgba(255, 250, 240, 0.92);
-  box-shadow: 0 10px 24px rgba(31, 41, 51, 0.2);
-  display: flex;
-  font-size: 14px;
-  font-weight: 700;
-  height: 30px;
-  justify-content: center;
-  width: 30px;
-}
-
-.crisis-marker.flood {
-  background: #2c6fb7;
-}
-
-.crisis-marker.wildfire {
-  background: #d85c2b;
-}
-
-.crisis-marker.health_emergency {
-  background: #8e3b8a;
-}
-
-.crisis-marker.storm {
-  background: #4a7c59;
-}
-
-.crisis-marker.other {
-  background: #6b7280;
-}
-
-.crisis-marker.is-selected {
-  transform: scale(1.1);
 }

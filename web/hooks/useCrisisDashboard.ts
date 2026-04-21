@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useEffect, useState } from "react";
+import { startTransition, useEffect, useRef, useState } from "react";
 
 import { fetchActiveCrises, fetchActiveGaps, simulateGapDetection } from "@/lib/api";
 import type { CrisisDetail, GapAlert } from "@/types/crisis";
@@ -16,7 +16,32 @@ interface UseCrisisDashboardResult {
   autoRefresh: boolean;
   setAutoRefresh: (value: boolean) => void;
   lastUpdatedAt: number | null;
+  highlightedIds: Set<string>;
   simulateGap: (crisisId: string) => Promise<void>;
+  refresh: () => Promise<void>;
+}
+
+function buildChangeSet(previous: CrisisDetail[], next: CrisisDetail[]): Set<string> {
+  const previousById = new Map(previous.map((crisis) => [crisis.id, crisis]));
+  const changed = new Set<string>();
+
+  for (const crisis of next) {
+    const existing = previousById.get(crisis.id);
+    if (!existing) {
+      changed.add(crisis.id);
+      continue;
+    }
+
+    if (
+      existing.response_state !== crisis.response_state ||
+      existing.gap_alerts.length !== crisis.gap_alerts.length ||
+      existing.responses.some((response, index) => response.status !== crisis.responses[index]?.status)
+    ) {
+      changed.add(crisis.id);
+    }
+  }
+
+  return changed;
 }
 
 export function useCrisisDashboard(): UseCrisisDashboardResult {
@@ -27,6 +52,8 @@ export function useCrisisDashboard(): UseCrisisDashboardResult {
   const [error, setError] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null);
+  const [highlightedIds, setHighlightedIds] = useState<Set<string>>(new Set());
+  const crisesRef = useRef<CrisisDetail[]>([]);
 
   async function refresh() {
     try {
@@ -36,10 +63,20 @@ export function useCrisisDashboard(): UseCrisisDashboardResult {
         fetchActiveCrises(),
         fetchActiveGaps(),
       ]);
+
       startTransition(() => {
+        const changed = buildChangeSet(crisesRef.current, crisisItems);
+        crisesRef.current = crisisItems;
         setCrises(crisisItems);
         setGapAlerts(gapItems);
         setLastUpdatedAt(Date.now());
+
+        if (changed.size > 0) {
+          setHighlightedIds(changed);
+          window.setTimeout(() => {
+            setHighlightedIds(new Set());
+          }, 2200);
+        }
       });
     } catch (caught) {
       setError(
@@ -94,6 +131,8 @@ export function useCrisisDashboard(): UseCrisisDashboardResult {
     autoRefresh,
     setAutoRefresh,
     lastUpdatedAt,
+    highlightedIds,
     simulateGap,
+    refresh,
   };
 }

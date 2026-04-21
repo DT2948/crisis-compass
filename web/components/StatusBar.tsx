@@ -7,17 +7,21 @@ function formatSecondsAgo(lastUpdatedAt: number | null, now: number): string {
     return "never";
   }
 
-  return `${Math.max(0, Math.floor((now - lastUpdatedAt) / 1000))} seconds ago`;
+  const seconds = Math.max(0, Math.floor((now - lastUpdatedAt) / 1000));
+  return `${seconds} seconds ago`;
 }
 
 export function StatusBar({
   lastUpdatedAt,
-  totalAlerts,
+  autoRefresh,
+  gapAlertCount,
 }: {
   lastUpdatedAt: number | null;
-  totalAlerts: number;
+  autoRefresh: boolean;
+  gapAlertCount: number;
 }) {
-  const [now, setNow] = useState(Date.now());
+  void autoRefresh;
+  const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
@@ -28,9 +32,9 @@ export function StatusBar({
   }, []);
 
   return (
-    <footer className="flex items-center justify-between border-t border-line/70 px-6 py-3 text-xs uppercase tracking-[0.18em] text-muted">
-      <span>Centered on Pennsylvania • Response state coding active</span>
-      <span>Gap alerts: {totalAlerts} • Last updated {formatSecondsAgo(lastUpdatedAt, now)}</span>
+    <footer className="flex h-6 items-center justify-between border-t border-line px-3 text-[11px] text-textMuted/90">
+      <div>Gap alerts {gapAlertCount}</div>
+      <div>Last updated {formatSecondsAgo(lastUpdatedAt, now)}</div>
     </footer>
   );
 }
