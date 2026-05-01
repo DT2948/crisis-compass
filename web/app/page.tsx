@@ -69,7 +69,7 @@ export default function DashboardPage() {
     }
 
     void loadSignalIntelligence(selectedCrisis.id);
-  }, [selectedCrisis?.id, lastUpdatedAt]);
+  }, [selectedCrisis?.id]);
 
   return (
     <main className="h-screen overflow-hidden bg-transparent px-0 py-0 text-textPrimary">
