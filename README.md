@@ -290,6 +290,10 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 
 This staged flow is intentionally designed to create a clear before-and-after coordination moment for the demo video.
 
+### Demo Recording
+
+https://psu.zoom.us/rec/share/nU8_qSzA2M72U3z1TUfQc-HSko_jdpaR7q1J_0auOZDr7l4G6U7UlcUd6BkNwXPk.p-TVgmu0DYFgELvL?startTime=1777671511000
+
 ---
 
 ## Why This Matters
