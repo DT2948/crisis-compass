@@ -23,7 +23,43 @@ function formatRelativeTime(timestamp: string): string {
   return `${diffDays} day${diffDays !== 1 ? "s" : ""} ago`;
 }
 
+function formatLabel(value: string): string {
+  return value
+    .replaceAll("_", " ")
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(" ");
+}
+
+function normalizeNeeds(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item).trim()).filter(Boolean);
+  }
+
+  if (typeof value === "string") {
+    if (value.trim().startsWith("[")) {
+      try {
+        const parsed = JSON.parse(value);
+        if (Array.isArray(parsed)) {
+          return parsed.map((item) => String(item).trim()).filter(Boolean);
+        }
+      } catch {
+        return value.split(",").map((item) => item.trim()).filter(Boolean);
+      }
+    }
+
+    return value.split(",").map((item) => item.trim()).filter(Boolean);
+  }
+
+  return [];
+}
+
 export function CrisisDetail({ crisis }: { crisis: Crisis }) {
+  const topNeeds = normalizeNeeds(crisis.community_profile?.top_needs);
+  const visibleResponses = crisis.responses.slice(0, 3);
+  const hiddenResponseCount = Math.max(0, crisis.responses.length - visibleResponses.length);
+
   return (
     <div className="space-y-3 border-t border-line pt-2 text-xs text-textSecondary">
       <p className="leading-5 text-textSecondary">{crisis.alert_text}</p>
@@ -55,14 +91,18 @@ export function CrisisDetail({ crisis }: { crisis: Crisis }) {
           Top Needs
         </p>
         <div className="flex flex-wrap gap-2">
-          {(crisis.community_profile?.top_needs ?? []).map((need) => (
-            <span
-              key={need}
-              className="rounded-sm border border-line bg-panelSoft px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] text-textSecondary"
-            >
-              {need}
-            </span>
-          ))}
+          {topNeeds.length > 0 ? (
+            topNeeds.map((need) => (
+              <span
+                key={need}
+                className="rounded-sm border border-line bg-panelSoft px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] text-textSecondary"
+              >
+                {formatLabel(need)}
+              </span>
+            ))
+          ) : (
+            <p className="text-textMuted">No top needs available yet.</p>
+          )}
         </div>
       </div>
 
@@ -71,7 +111,7 @@ export function CrisisDetail({ crisis }: { crisis: Crisis }) {
           Response Tracker
         </p>
         <div className="space-y-2">
-          {crisis.responses.map((response) => (
+          {visibleResponses.map((response) => (
             <div key={response.id} className="rounded-sm border border-line bg-panelSoft px-2 py-2">
               <div className="flex items-center justify-between gap-2">
                 <span className="font-medium text-textPrimary">{response.organization.name}</span>
@@ -85,6 +125,11 @@ export function CrisisDetail({ crisis }: { crisis: Crisis }) {
               </p>
             </div>
           ))}
+          {hiddenResponseCount > 0 ? (
+            <p className="text-[11px] text-textMuted">
+              and {hiddenResponseCount} more organizations notified
+            </p>
+          ) : null}
         </div>
       </div>
 
@@ -117,7 +162,7 @@ export function CrisisDetail({ crisis }: { crisis: Crisis }) {
             key={tag}
             className="rounded-sm border border-line bg-panelSoft px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] text-textSecondary"
           >
-            {tag}
+            {formatLabel(tag)}
           </span>
         ))}
       </div>

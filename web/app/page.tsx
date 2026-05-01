@@ -39,10 +39,9 @@ export default function DashboardPage() {
   const [selectedCrisisId, setSelectedCrisisId] = useState<string | null>(null);
   const [signalIntelligence, setSignalIntelligence] = useState<SignalIntelligence | null>(null);
   const [signalLoading, setSignalLoading] = useState(false);
-  const [signalError, setSignalError] = useState<string | null>(null);
 
   const selectedCrisis =
-    crises.find((crisis) => crisis.id === selectedCrisisId) ?? crises[0] ?? null;
+    crises.find((crisis) => crisis.id === selectedCrisisId) ?? null;
 
   function handleSelectCrisis(id: string) {
     setSelectedCrisisId((current) => (current === id ? null : id));
@@ -52,16 +51,10 @@ export default function DashboardPage() {
     async function loadSignalIntelligence(crisisId: string) {
       try {
         setSignalLoading(true);
-        setSignalError(null);
         const result = await fetchCrisisSources(crisisId);
         setSignalIntelligence(result);
-      } catch (caught) {
+      } catch {
         setSignalIntelligence(null);
-        setSignalError(
-          caught instanceof Error
-            ? caught.message
-            : "Unable to load source intelligence for this crisis.",
-        );
       } finally {
         setSignalLoading(false);
       }
@@ -69,7 +62,6 @@ export default function DashboardPage() {
 
     if (!selectedCrisis?.id) {
       setSignalIntelligence(null);
-      setSignalError(null);
       return;
     }
 
@@ -133,7 +125,6 @@ export default function DashboardPage() {
                   crisis={selectedCrisis}
                   sources={signalIntelligence}
                   loading={signalLoading}
-                  error={signalError}
                 />
               </div>
             ) : null}

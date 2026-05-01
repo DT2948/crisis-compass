@@ -15,7 +15,7 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to fetch ${path}: ${response.status}`);
+    throw new Error("Data temporarily unavailable.");
   }
 
   return response.json() as Promise<T>;

@@ -87,11 +87,8 @@ export function useCrisisDashboard(): UseCrisisDashboardResult {
         }
       });
     } catch (caught) {
-      setError(
-        caught instanceof Error
-          ? caught.message
-          : "Unable to load live crisis coordination data.",
-      );
+      void caught;
+      setError("Data temporarily unavailable.");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -104,11 +101,8 @@ export function useCrisisDashboard(): UseCrisisDashboardResult {
       await simulateGapDetection(crisisId);
       await refresh();
     } catch (caught) {
-      setError(
-        caught instanceof Error
-          ? caught.message
-          : "Gap simulation failed.",
-      );
+      void caught;
+      setError("Data temporarily unavailable.");
     } finally {
       setRefreshing(false);
     }
@@ -121,11 +115,8 @@ export function useCrisisDashboard(): UseCrisisDashboardResult {
       await triggerPipeline("Eastside District, Philadelphia, Pennsylvania");
       await refresh();
     } catch (caught) {
-      setError(
-        caught instanceof Error
-          ? caught.message
-          : "Pipeline trigger failed.",
-      );
+      void caught;
+      setError("Data temporarily unavailable.");
     } finally {
       setTriggeringPipeline(false);
     }

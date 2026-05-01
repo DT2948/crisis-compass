@@ -15,6 +15,13 @@ function titleCase(value?: string): string {
     .join(" ");
 }
 
+function formatCrisisType(value?: string): string {
+  if ((value || "").toLowerCase() === "flood") {
+    return "Flash Flood";
+  }
+  return titleCase(value);
+}
+
 function formatTime(timestamp?: string): string {
   if (!timestamp) {
     return "No timestamp";
@@ -63,13 +70,13 @@ function pickSource(sources: SignalIntelligence, ...keys: string[]): SignalSourc
 function severityTone(severity?: string): string {
   switch ((severity || "").toLowerCase()) {
     case "critical":
-      return "bg-danger/85 text-white border border-danger/60";
+      return "border border-danger/60 bg-danger/85 text-white";
     case "high":
-      return "bg-amber-600/85 text-amber-50 border border-amber-400/50";
+      return "border border-amber-400/45 bg-amber-600/85 text-amber-50";
     case "medium":
-      return "bg-yellow-500/80 text-yellow-950 border border-yellow-300/50";
+      return "border border-yellow-300/50 bg-yellow-500/80 text-yellow-950";
     default:
-      return "bg-blue-500/80 text-blue-50 border border-blue-300/50";
+      return "border border-blue-300/50 bg-blue-500/80 text-blue-50";
   }
 }
 
@@ -95,14 +102,39 @@ function confidenceAgreement(confidence?: string): string {
   }
 }
 
-function vulnerabilityTone(score: number): { color: string; description: string } {
+function vulnerabilityDescription(score: number, riskFlags: string[]): string {
+  const flags = riskFlags.map((flag) => flag.toLowerCase());
+  const pieces: string[] = [];
+
+  if (flags.some((flag) => flag.includes("elderly"))) {
+    pieces.push("elderly");
+  }
+  if (flags.some((flag) => flag.includes("language") || flag.includes("non_english"))) {
+    pieces.push("language");
+  }
+  if (flags.some((flag) => flag.includes("mobility") || flag.includes("disability"))) {
+    pieces.push("mobility");
+  }
+
+  const suffix = pieces.length > 0 ? pieces.join(" + ") : "community factors";
+
   if (score > 70) {
-    return { color: "text-danger", description: "High — elderly + language" };
+    return `High — ${suffix}`;
   }
   if (score >= 40) {
-    return { color: "text-amber-300", description: "Moderate — mixed access barriers" };
+    return `Moderate — ${suffix}`;
   }
-  return { color: "text-responseConfirmed", description: "Lower — manageable vulnerability" };
+  return `Lower — ${suffix}`;
+}
+
+function vulnerabilityTone(score: number): string {
+  if (score > 70) {
+    return "text-danger";
+  }
+  if (score >= 40) {
+    return "text-amber-300";
+  }
+  return "text-responseConfirmed";
 }
 
 function sourceTagTone(tag: "official" | "weather" | "news" | "ground"): string {
@@ -138,7 +170,7 @@ function MetricCard({
   );
 }
 
-function SourceBreakdownCard({
+function SourceCard({
   icon,
   title,
   source,
@@ -177,12 +209,12 @@ function LoadingSkeleton() {
     <section className="border-t border-line bg-ink px-3 py-3">
       <div className="animate-pulse space-y-3">
         <div className="h-10 rounded-sm bg-panelSoft" />
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
           <div className="h-28 rounded-sm bg-panelSoft" />
           <div className="h-28 rounded-sm bg-panelSoft" />
           <div className="h-28 rounded-sm bg-panelSoft" />
         </div>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
           <div className="h-36 rounded-sm bg-panelSoft" />
           <div className="h-36 rounded-sm bg-panelSoft" />
           <div className="h-36 rounded-sm bg-panelSoft" />
@@ -194,40 +226,31 @@ function LoadingSkeleton() {
   );
 }
 
+function PlaceholderState() {
+  return (
+    <section className="border-t border-line bg-ink px-3 py-3">
+      <div className="rounded-sm border border-line bg-panelSoft px-4 py-6 text-center text-sm text-textMuted">
+        Signal intelligence will appear here after the pipeline runs successfully.
+      </div>
+    </section>
+  );
+}
+
 export function SignalIntelligencePanel({
   crisis,
   sources,
   loading,
-  error,
 }: {
   crisis: CrisisDetail;
   sources: SignalIntelligence | null;
   loading?: boolean;
-  error?: string | null;
 }) {
   if (loading) {
     return <LoadingSkeleton />;
   }
 
-  if (error) {
-    return (
-      <section className="border-t border-line bg-ink px-3 py-3">
-        <div className="rounded-sm border border-danger/30 bg-danger/10 px-3 py-3 text-sm text-textSecondary">
-          <p className="font-medium text-danger">Signal intelligence temporarily unavailable</p>
-          <p className="mt-1 text-textMuted">{error}</p>
-        </div>
-      </section>
-    );
-  }
-
   if (!sources) {
-    return (
-      <section className="border-t border-line bg-ink px-3 py-3">
-        <div className="rounded-sm border border-line bg-panelSoft px-3 py-3 text-sm text-textMuted">
-          No signal intelligence available for this crisis yet.
-        </div>
-      </section>
-    );
+    return <PlaceholderState />;
   }
 
   const fema = pickSource(sources, "fema", "FEMA", "fema_signal");
@@ -241,12 +264,10 @@ export function SignalIntelligencePanel({
     social ? "Social" : null,
   ].filter(Boolean) as string[];
   const sourceCount = sources.source_count ?? sourceNames.length;
-  const confidence = titleCase(sources.signal_confidence);
   const vulnerabilityScore = crisis.community_profile?.vulnerability_score ?? sources.vulnerability_score ?? 0;
-  const vulnerability = vulnerabilityTone(vulnerabilityScore);
-  const escalationBody =
+  const discrepancyText =
     sources.escalation_reason ||
-    "FEMA reports 'moderate severity' but Weather.gov and social signals indicate conditions are more severe. CrisisCompass has escalated severity to CRITICAL based on ground truth signals.";
+    "FEMA reports moderate severity but Weather.gov and social signals indicate conditions are more severe. CrisisCompass has escalated severity to CRITICAL based on ground truth signals.";
 
   return (
     <section className="border-t border-line bg-ink px-3 py-3">
@@ -259,7 +280,7 @@ export function SignalIntelligencePanel({
           </div>
           <div className="flex items-center gap-2">
             <span className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] ${severityTone(crisis.severity)}`}>
-              ● {crisis.severity.toUpperCase()} — {titleCase(crisis.crisis_type)}
+              ● {crisis.severity.toUpperCase()} — {formatCrisisType(crisis.crisis_type)}
             </span>
             <button
               type="button"
@@ -276,45 +297,45 @@ export function SignalIntelligencePanel({
           <MetricCard
             label="Sources Ingested"
             value={sourceCount}
-            subtitle={sourceNames.join(", ") || "No sources available"}
+            subtitle={sourceNames.join(", ") || "FEMA, Weather, News, Social"}
           />
           <MetricCard
             label="Signal Confidence"
-            value={confidence}
+            value={titleCase(sources.signal_confidence)}
             subtitle={confidenceAgreement(sources.signal_confidence)}
             valueClassName={confidenceTone(sources.signal_confidence)}
           />
           <MetricCard
             label="Vulnerability Score"
             value={`${vulnerabilityScore} / 100`}
-            subtitle={vulnerability.description}
-            valueClassName={vulnerability.color}
+            subtitle={vulnerabilityDescription(vulnerabilityScore, crisis.risk_flags)}
+            valueClassName={vulnerabilityTone(vulnerabilityScore)}
           />
         </div>
 
         <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-          <SourceBreakdownCard
+          <SourceCard
             icon="🏛️"
             title="FEMA IPAWS"
             source={fema}
             tag="official"
             tagLabel="Official alert"
           />
-          <SourceBreakdownCard
+          <SourceCard
             icon="🌧️"
             title="Weather.gov"
             source={weather}
             tag="weather"
             tagLabel="Weather service"
           />
-          <SourceBreakdownCard
+          <SourceCard
             icon="📰"
             title="News feed"
             source={news}
             tag="news"
             tagLabel="News report"
           />
-          <SourceBreakdownCard
+          <SourceCard
             icon="💬"
             title="Social media"
             source={social}
@@ -329,7 +350,7 @@ export function SignalIntelligencePanel({
               <span className="text-lg text-amber-300">⚠️</span>
               <div>
                 <p className="text-sm font-semibold text-amber-100">Signal discrepancy detected</p>
-                <p className="mt-1 text-xs leading-5 text-amber-50/90">{escalationBody}</p>
+                <p className="mt-1 text-xs leading-5 text-amber-50/90">{discrepancyText}</p>
               </div>
             </div>
           </div>
