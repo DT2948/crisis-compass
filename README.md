@@ -335,4 +335,4 @@ IBM WatsonX Orchestrate · IBM WatsonX.ai · GPT-OSS 120B via Groq · FastAPI ·
 
 ## Acknowledgment
 
-Built as part of the **IBM SkillsBuild AI Experiential Learning Lab** at **Pennsylvania State University**, May 2026.
+Built as part of the **IBM SkillsBuild AI Experiential Learning Lab**, May 2026.
