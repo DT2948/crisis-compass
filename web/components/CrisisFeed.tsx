@@ -10,11 +10,15 @@ export function CrisisFeed({
   selectedCrisisId,
   highlightedIds,
   onSelectCrisis,
+  onConfirmResponse,
+  confirmingResponseOrgId,
 }: {
   crises: CrisisDetail[];
   selectedCrisisId: string | null;
   highlightedIds: Set<string>;
   onSelectCrisis: (crisisId: string) => void;
+  onConfirmResponse: (crisisId: string, orgId: string, needsCovered: string[]) => void;
+  confirmingResponseOrgId: string | null;
 }) {
   useEffect(() => {
     if (!selectedCrisisId) {
@@ -42,6 +46,8 @@ export function CrisisFeed({
               crisis={crisis}
               expanded={selectedCrisisId === crisis.id}
               highlighted={highlightedIds.has(crisis.id)}
+              onConfirmResponse={onConfirmResponse}
+              confirmingResponseOrgId={confirmingResponseOrgId}
               onClick={() => onSelectCrisis(crisis.id)}
             />
           ))}

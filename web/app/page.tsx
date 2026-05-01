@@ -32,6 +32,9 @@ export default function DashboardPage() {
     lastUpdatedAt,
     highlightedIds,
     simulateGap,
+    simulatingGap,
+    confirmResponse,
+    confirmingResponseOrgId,
     triggeringPipeline,
     triggerCrisisPipeline,
     refresh,
@@ -77,6 +80,7 @@ export default function DashboardPage() {
             onToggleAutoRefresh={setAutoRefresh}
             crisisCount={crises.length}
             refreshing={refreshing}
+            simulatingGap={simulatingGap}
             triggeringPipeline={triggeringPipeline}
             selectedCrisisId={selectedCrisis?.id ?? null}
             onSimulateGap={(crisisId) => {
@@ -117,10 +121,14 @@ export default function DashboardPage() {
                 selectedCrisisId={selectedCrisis?.id ?? null}
                 highlightedIds={highlightedIds}
                 onSelectCrisis={handleSelectCrisis}
+                onConfirmResponse={(crisisId, orgId, needsCovered) => {
+                  void confirmResponse(crisisId, orgId, needsCovered);
+                }}
+                confirmingResponseOrgId={confirmingResponseOrgId}
               />
             </div>
             {selectedCrisis ? (
-              <div className="min-h-[280px] max-h-[42%] overflow-hidden border-t border-line">
+              <div className="min-h-[280px] max-h-[42%] overflow-y-auto border-t border-line">
                 <SignalIntelligencePanel
                   crisis={selectedCrisis}
                   sources={signalIntelligence}

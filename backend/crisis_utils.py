@@ -7,8 +7,6 @@ from sqlalchemy.orm import Session, selectinload
 from models.crisis import Crisis
 from models.pipeline_result import PipelineResult
 from models.response_tracking import ResponseTracking
-from pipeline import aggregate_results
-from transform import parse_flow_result
 
 
 def parse_json_list(raw: str) -> list[str]:
@@ -45,28 +43,45 @@ def get_crisis_or_404(db: Session, crisis_id: str) -> Crisis:
 
 
 def get_aggregated_pipeline_result(db: Session, crisis_id: str) -> dict:
-    records = db.scalars(
+    record = db.scalars(
         select(PipelineResult)
         .where(PipelineResult.crisis_id == crisis_id)
-        .order_by(PipelineResult.created_at.asc())
-    ).all()
-    results = []
-    for record in records:
-        try:
-            parsed = json.loads(record.raw_result)
-            if isinstance(parsed, dict):
-                results.append(parse_flow_result(parsed))
-        except json.JSONDecodeError:
-            continue
-    if not results:
+        .order_by(PipelineResult.created_at.desc())
+    ).first()
+    if not record:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="No stored pipeline results found for crisis",
         )
-    return aggregate_results(results)
+
+    try:
+        parsed = json.loads(record.raw_result)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Stored pipeline result is invalid",
+        ) from exc
+
+    if not isinstance(parsed, dict):
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Stored pipeline result is invalid",
+        )
+
+    return parsed
 
 
 def build_gap_status(crisis: Crisis, aggregated: dict | None = None) -> dict:
+    if not crisis.gap_alerts and all(response.status != "gap_flagged" for response in crisis.responses):
+        return {
+            "gap_detected": False,
+            "alert_status": "all_clear",
+            "alert_message": "All currently identified critical needs have confirmed coverage.",
+            "escalation_recommendation": "Continue monitoring partner confirmations and community updates.",
+            "escalation_org": "",
+            "unmet_needs": [],
+        }
+
     profile = crisis.community_profiles[0] if crisis.community_profiles else None
     if profile:
         top_needs = parse_json_list(profile.top_needs)

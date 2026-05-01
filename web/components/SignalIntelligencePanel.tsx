@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 import type { CrisisDetail, SignalIntelligence, SignalSource } from "@/types/crisis";
 
 function titleCase(value?: string): string {
@@ -49,6 +51,14 @@ function truncateQuote(text?: string, limit = 200): string {
   }
 
   return `"${trimmed.slice(0, limit).trimEnd()}..."`;
+}
+
+function quoteText(text?: string): string {
+  if (!text) {
+    return '"No signal available."';
+  }
+
+  return `"${text.trim()}"`;
 }
 
 function pickSource(sources: SignalIntelligence, ...keys: string[]): SignalSource | undefined {
@@ -183,6 +193,9 @@ function SourceCard({
   tag: "official" | "weather" | "news" | "ground";
   tagLabel: string;
 }) {
+  const [expanded, setExpanded] = useState(false);
+  const displayText = expanded ? quoteText(source?.raw_text) : truncateQuote(source?.raw_text);
+
   return (
     <div className="rounded-sm border border-line bg-panelSoft px-3 py-3">
       <div className="flex items-start justify-between gap-3">
@@ -194,9 +207,20 @@ function SourceCard({
           </div>
         </div>
       </div>
-      <p className="mt-3 text-xs leading-5 text-textSecondary">{truncateQuote(source?.raw_text)}</p>
+      <p className={`mt-3 text-xs leading-5 text-textSecondary ${expanded ? "" : "line-clamp-3"}`}>
+        {displayText}
+      </p>
+      <button
+        type="button"
+        onClick={() => setExpanded((current) => !current)}
+        className="mt-2 text-[11px] text-textMuted transition hover:text-textSecondary"
+      >
+        {expanded ? "Show less" : "Show more"}
+      </button>
       <div className="mt-3">
-        <span className={`inline-flex rounded-sm px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] ${sourceTagTone(tag)}`}>
+        <span
+          className={`inline-flex rounded-sm px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] ${sourceTagTone(tag)}`}
+        >
           {tagLabel}
         </span>
       </div>
@@ -206,7 +230,7 @@ function SourceCard({
 
 function LoadingSkeleton() {
   return (
-    <section className="border-t border-line bg-ink px-3 py-3">
+    <section className="h-full overflow-y-auto border-t border-line bg-ink px-3 py-3">
       <div className="animate-pulse space-y-3">
         <div className="h-10 rounded-sm bg-panelSoft" />
         <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
@@ -228,7 +252,7 @@ function LoadingSkeleton() {
 
 function PlaceholderState() {
   return (
-    <section className="border-t border-line bg-ink px-3 py-3">
+    <section className="h-full overflow-y-auto border-t border-line bg-ink px-3 py-3">
       <div className="rounded-sm border border-line bg-panelSoft px-4 py-6 text-center text-sm text-textMuted">
         Signal intelligence will appear here after the pipeline runs successfully.
       </div>
@@ -270,7 +294,7 @@ export function SignalIntelligencePanel({
     "FEMA reports moderate severity but Weather.gov and social signals indicate conditions are more severe. CrisisCompass has escalated severity to CRITICAL based on ground truth signals.";
 
   return (
-    <section className="border-t border-line bg-ink px-3 py-3">
+    <section className="h-full overflow-y-auto border-t border-line bg-ink px-3 py-3">
       <div className="space-y-3">
         <div className="flex items-start justify-between gap-3 rounded-sm border border-line bg-panelSoft px-3 py-3">
           <div className="min-w-0">
@@ -279,17 +303,13 @@ export function SignalIntelligencePanel({
             </h2>
           </div>
           <div className="flex items-center gap-2">
-            <span className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] ${severityTone(crisis.severity)}`}>
+            <span
+              className={`inline-flex whitespace-nowrap items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-[0.1em] ${severityTone(
+                crisis.severity,
+              )}`}
+            >
               ● {crisis.severity.toUpperCase()} — {formatCrisisType(crisis.crisis_type)}
             </span>
-            <button
-              type="button"
-              tabIndex={-1}
-              className="rounded-sm border border-line px-2 py-1 text-sm text-textMuted"
-              aria-label="More options"
-            >
-              ...
-            </button>
           </div>
         </div>
 

@@ -60,11 +60,15 @@ export function CrisisCard({
   expanded,
   onClick,
   highlighted,
+  onConfirmResponse,
+  confirmingResponseOrgId,
 }: {
   crisis: Crisis;
   expanded: boolean;
   onClick: () => void;
   highlighted: boolean;
+  onConfirmResponse: (crisisId: string, orgId: string, needsCovered: string[]) => void;
+  confirmingResponseOrgId: string | null;
 }) {
   const accentColor = {
     needs_identified: "#4D8FB7",
@@ -119,7 +123,11 @@ export function CrisisCard({
 
           {expanded ? (
             <div className="mt-3">
-              <CrisisDetail crisis={crisis} />
+              <CrisisDetail
+                crisis={crisis}
+                onConfirmResponse={onConfirmResponse}
+                confirmingResponseOrgId={confirmingResponseOrgId}
+              />
             </div>
           ) : null}
         </div>

@@ -8,6 +8,7 @@ export function Header({
   onToggleAutoRefresh,
   crisisCount,
   refreshing,
+  simulatingGap,
   triggeringPipeline,
   selectedCrisisId,
   onSimulateGap,
@@ -18,6 +19,7 @@ export function Header({
   onToggleAutoRefresh: (value: boolean) => void;
   crisisCount: number;
   refreshing: boolean;
+  simulatingGap: boolean;
   triggeringPipeline: boolean;
   selectedCrisisId: CrisisDetail["id"] | null;
   onSimulateGap: (crisisId: string) => void;
@@ -81,10 +83,10 @@ export function Header({
               onSimulateGap(selectedCrisisId);
             }
           }}
-          disabled={!selectedCrisisId || triggeringPipeline}
+          disabled={!selectedCrisisId || triggeringPipeline || simulatingGap}
           className="inline-flex items-center rounded-sm border border-line bg-transparent px-2.5 py-1.5 text-xs text-textSecondary transition hover:border-primaryHover/40 hover:text-textPrimary disabled:cursor-not-allowed disabled:opacity-50"
         >
-          Simulate Time Elapsed
+          {simulatingGap ? "Simulating..." : "Simulate Time Elapsed"}
         </button>
 
         <div className="px-1 text-xs text-textMuted">{crisisCount} active</div>

@@ -3,6 +3,7 @@
 import { startTransition, useEffect, useRef, useState } from "react";
 
 import {
+  confirmOrgResponse,
   fetchActiveCrises,
   fetchActiveGaps,
   simulateGapDetection,
@@ -23,6 +24,9 @@ interface UseCrisisDashboardResult {
   lastUpdatedAt: number | null;
   highlightedIds: Set<string>;
   simulateGap: (crisisId: string) => Promise<void>;
+  simulatingGap: boolean;
+  confirmResponse: (crisisId: string, orgId: string, needsCovered: string[]) => Promise<void>;
+  confirmingResponseOrgId: string | null;
   triggeringPipeline: boolean;
   triggerCrisisPipeline: () => Promise<void>;
   refresh: () => Promise<void>;
@@ -60,6 +64,8 @@ export function useCrisisDashboard(): UseCrisisDashboardResult {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null);
   const [highlightedIds, setHighlightedIds] = useState<Set<string>>(new Set());
+  const [simulatingGap, setSimulatingGap] = useState(false);
+  const [confirmingResponseOrgId, setConfirmingResponseOrgId] = useState<string | null>(null);
   const [triggeringPipeline, setTriggeringPipeline] = useState(false);
   const crisesRef = useRef<CrisisDetail[]>([]);
 
@@ -97,14 +103,29 @@ export function useCrisisDashboard(): UseCrisisDashboardResult {
 
   async function simulateGap(crisisId: string) {
     try {
-      setRefreshing(true);
+      setError(null);
+      setSimulatingGap(true);
       await simulateGapDetection(crisisId);
       await refresh();
     } catch (caught) {
       void caught;
       setError("Data temporarily unavailable.");
     } finally {
-      setRefreshing(false);
+      setSimulatingGap(false);
+    }
+  }
+
+  async function confirmResponse(crisisId: string, orgId: string, needsCovered: string[]) {
+    try {
+      setError(null);
+      setConfirmingResponseOrgId(orgId);
+      await confirmOrgResponse(crisisId, orgId, needsCovered);
+      await refresh();
+    } catch (caught) {
+      void caught;
+      setError("Data temporarily unavailable.");
+    } finally {
+      setConfirmingResponseOrgId(null);
     }
   }
 
@@ -149,6 +170,9 @@ export function useCrisisDashboard(): UseCrisisDashboardResult {
     lastUpdatedAt,
     highlightedIds,
     simulateGap,
+    simulatingGap,
+    confirmResponse,
+    confirmingResponseOrgId,
     triggeringPipeline,
     triggerCrisisPipeline,
     refresh,

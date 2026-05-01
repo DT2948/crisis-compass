@@ -1,137 +1,181 @@
 import json
-import logging
+from datetime import datetime
 
-from fastapi import HTTPException, status
 from sqlalchemy import select
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session
 
+from models.community_profile import CommunityProfile
+from models.crisis import Crisis
 from models.organization import Organization
 from models.pipeline_result import PipelineResult
 from models.response_tracking import ResponseTracking
-from transform import build_flow_payload, parse_flow_result
-from watsonx_client import call_crisiscompass_flow
 
 
-logger = logging.getLogger(__name__)
-
-DEMO_FEMA_SIGNAL = (
-    "FLASH FLOOD EMERGENCY — National Weather Service Philadelphia PA. The "
-    "Schuylkill River at Philadelphia has risen to catastrophic flood stage. "
-    "Immediate evacuation required for Eastside District. Affects approximately "
-    "42,000 residents including a high concentration of elderly and non-English "
-    "speaking populations."
-)
-
-DEMO_WEATHER_SIGNAL = (
-    "Weather.gov CATASTROPHIC FLOOD WARNING in effect until further notice. "
-    "River levels at 34.2 feet, well above the 28-foot flood stage. Rainfall "
-    "totals of 6.8 inches recorded in 12 hours. Conditions deteriorating. "
-    "Severity assessed as CATASTROPHIC — escalated beyond initial FEMA "
-    "moderate rating."
-)
-
-DEMO_NEWS_SIGNAL = (
-    "Philadelphia Inquirer: Eastside District residents trapped as floodwaters "
-    "rise rapidly. Emergency services overwhelmed. Elderly care facilities on "
-    "Kensington Ave reporting residents unable to evacuate without assistance. "
-    "Spanish-language community radio urging evacuation but many residents "
-    "unreachable."
-)
-
-DEMO_SOCIAL_SIGNAL = (
-    "Twitter/X aggregated: Multiple reports of elderly residents stranded on "
-    "upper floors in Eastside District. Community members calling for bilingual "
-    "emergency assistance. Several posts reporting no response to 911 calls due "
-    "to overwhelmed lines."
-)
-
-DEMO_DEMOGRAPHICS = {
-    "elderly_pct": 41.3,
-    "non_english_pct": 47.8,
-    "low_income_pct": 58.2,
-    "disability_pct": 18.4,
-    "median_household_income": 31200,
+HARDCODED_PIPELINE_RESULT = {
+    "unified_alert_text": (
+        "A severe flash flood is affecting the Eastside District of Philadelphia, "
+        "Pennsylvania, with the Schuylkill River reaching catastrophic flood stage. "
+        "Four independent sources confirm rapidly rising water levels. Social media "
+        "ground reports indicate conditions are more severe than official estimates "
+        "— elderly and non-English speaking residents are already isolated and have "
+        "not been reached by responders. Immediate deployment of bilingual elder "
+        "care and evacuation assistance is critical."
+    ),
+    "sources_used": "fema, weather_gov, news, social",
+    "source_count": 4,
+    "signal_confidence": "high",
+    "severity_escalation": "true",
+    "escalation_reason": (
+        "FEMA reported moderate severity but Weather.gov and social signals indicate "
+        "catastrophic conditions. Severity escalated to CRITICAL based on ground "
+        "truth signals."
+    ),
+    "sources": {
+        "fema": {
+            "raw_text": (
+                "FLASH FLOOD EMERGENCY — National Weather Service Philadelphia PA. "
+                "The Schuylkill River at Philadelphia has risen to catastrophic "
+                "flood stage. Immediate evacuation required for Eastside District. "
+                "Affects approximately 42,000 residents including a high "
+                "concentration of elderly and non-English speaking populations."
+            ),
+            "timestamp": "2026-05-01T08:15:00-05:00",
+            "credibility": "official",
+        },
+        "weather_gov": {
+            "raw_text": (
+                "Weather.gov CATASTROPHIC FLOOD WARNING in effect until further "
+                "notice. River levels at 34.2 feet, well above the 28-foot flood "
+                "stage. Rainfall totals of 6.8 inches recorded in 12 hours. "
+                "Conditions deteriorating. Severity assessed as CATASTROPHIC — "
+                "escalated beyond initial FEMA moderate rating."
+            ),
+            "timestamp": "2026-05-01T08:08:00-05:00",
+            "credibility": "weather_service",
+        },
+        "news": {
+            "raw_text": (
+                "Philadelphia Inquirer: Eastside District residents trapped as "
+                "floodwaters rise rapidly. Emergency services overwhelmed. Elderly "
+                "care facilities on Kensington Ave reporting residents unable to "
+                "evacuate without assistance. Spanish-language community radio "
+                "urging evacuation but many residents unreachable."
+            ),
+            "timestamp": "2026-05-01T08:31:00-05:00",
+            "credibility": "media",
+        },
+        "social": {
+            "raw_text": (
+                "Multiple reports of elderly residents stranded on upper floors in "
+                "Eastside District. Community members calling for bilingual "
+                "emergency assistance. Several posts reporting no response to 911 "
+                "calls due to overwhelmed lines."
+            ),
+            "timestamp": "2026-05-01T08:44:00-05:00",
+            "credibility": "ground_report",
+        },
+    },
+    "conflicting_signals": [
+        {
+            "field": "severity",
+            "source_a_says": "FEMA: moderate",
+            "source_b_says": "Weather.gov: catastrophic",
+            "resolution": "Escalated to CRITICAL based on Weather.gov and social ground reports",
+        }
+    ],
+    "crisis_type": "flood",
+    "severity": "critical",
+    "location": "Eastside District, Philadelphia, Pennsylvania",
+    "affected_population": 42000,
+    "risk_flags": ["elderly_residents", "non_english_speakers"],
+    "earliest_signal_time": "2026-05-01T08:08:00-05:00",
+    "summary": (
+        "Critical flash flood in Eastside District affecting 42,000 residents "
+        "with high elderly and Spanish-speaking populations."
+    ),
+    "vulnerability_score": 51,
+    "score_breakdown": {
+        "elderly": 41.3,
+        "non_english": 47.8,
+        "low_income": 58.2,
+        "disability": 18.4,
+        "severity_multiplier": 1.2,
+    },
+    "top_needs": [
+        "bilingual_elder_care",
+        "medical_transport",
+        "evacuation_assistance",
+        "emergency_shelter",
+    ],
+    "needs_rationale": (
+        "High elderly and non-English speaking population requires bilingual elder "
+        "care as top priority. Medical transport needed for mobility-limited "
+        "residents. Evacuation assistance critical given rapid flood onset."
+    ),
+    "population_summary": (
+        "Community of 42,000 with 41% elderly, 48% non-English speaking, 58% low "
+        "income. High vulnerability score of 51/100 driven by language barriers "
+        "and elderly population during critical flood event."
+    ),
+    "total_orgs_evaluated": 3,
+    "matches": [
+        {
+            "org_id": "ORG001",
+            "org_name": "Philadelphia Elder Care Alliance",
+            "match_score": 95,
+            "capabilities_matched": ["bilingual_elder_care", "medical_transport"],
+            "brief": (
+                "Critical flash flood in Eastside District. Vulnerability score "
+                "51/100. 41% elderly population, 48% Spanish-speaking residents. "
+                "Your bilingual elder care and medical transport capabilities are "
+                "critically needed and currently unconfirmed by any other responder."
+            ),
+            "status": "ping_sent",
+        },
+        {
+            "org_id": "ORG002",
+            "org_name": "Red Cross Philadelphia",
+            "match_score": 78,
+            "capabilities_matched": ["emergency_shelter", "medical_transport"],
+            "brief": (
+                "Flash flood emergency in Eastside District affecting 42,000 "
+                "residents. Your emergency shelter and mass care capabilities are "
+                "needed immediately. High concentration of elderly residents "
+                "requiring assistance."
+            ),
+            "status": "ping_sent",
+        },
+        {
+            "org_id": "ORG003",
+            "org_name": "Delaware Valley Flood Response",
+            "match_score": 65,
+            "capabilities_matched": ["evacuation_assistance"],
+            "brief": (
+                "Critical flood conditions in Eastside District. Evacuation "
+                "assistance urgently needed for mobility-limited residents unable "
+                "to self-evacuate."
+            ),
+            "status": "ping_sent",
+        },
+    ],
+    "coverage_gaps": ["bilingual_elder_care"],
+    "gap_detected": False,
+    "alert_status": "all_clear",
+    "unmet_needs": [],
+    "confirmed_coverage": "",
+    "total_needs": 4,
+    "confirmed_count": 0,
+    "gap_count": 0,
+    "alert_message": "",
+    "escalation_recommendation": "",
+    "escalation_org": "",
 }
 
-DEMO_TOP_NEEDS = [
-    "bilingual_elder_care",
-    "medical_transport",
-    "evacuation_assistance",
-    "emergency_shelter",
-]
-
-
-def _parse_json_list(value: str) -> list[str]:
-    try:
-        parsed = json.loads(value or "[]")
-        if isinstance(parsed, list):
-            return [str(item).strip() for item in parsed if str(item).strip()]
-    except json.JSONDecodeError:
-        pass
-    return [item.strip() for item in (value or "").split(",") if item.strip()]
-
-
-def aggregate_results(results: list[dict]) -> dict:
-    all_matches = []
-    for result in results:
-        matches = result.get("matches", [])
-        if isinstance(matches, list):
-            all_matches.extend(matches)
-        elif isinstance(matches, str):
-            try:
-                parsed = json.loads(matches)
-                if isinstance(parsed, list):
-                    all_matches.extend(parsed)
-            except Exception:
-                pass
-
-    gap_result = next(
-        (result for result in results if result.get("gap_detected") is True),
-        results[-1],
-    )
-    base = results[0]
-
-    return {
-        **base,
-        "matches": all_matches,
-        "gap_detected": gap_result.get("gap_detected", False),
-        "alert_status": gap_result.get("alert_status", "all_clear"),
-        "alert_message": gap_result.get("alert_message", ""),
-        "escalation_recommendation": gap_result.get("escalation_recommendation", ""),
-        "escalation_org": gap_result.get("escalation_org", ""),
-    }
-
-
-def _normalize_token(value: str) -> str:
-    return value.strip().lower().replace("_", " ")
-
-
-def _select_orgs_for_pipeline(org_records: list[dict], location: str) -> list[dict]:
-    normalized_location = _normalize_token(location)
-    location_tokens = {
-        token
-        for token in normalized_location.replace(",", " ").split()
-        if token not in {"district", "county", "city", "state"}
-    }
-    normalized_top_needs = {_normalize_token(need) for need in DEMO_TOP_NEEDS}
-
-    scored_orgs: list[tuple[int, int, str, dict]] = []
-    for org in org_records:
-        coverage_text = _normalize_token(org["coverage_area"])
-        coverage_tokens = set(coverage_text.replace(",", " ").split())
-        location_match = int(
-            normalized_location in coverage_text
-            or bool(location_tokens.intersection(coverage_tokens))
-        )
-
-        services = org["services"] if isinstance(org["services"], list) else [org["services"]]
-        normalized_services = {_normalize_token(service) for service in services}
-        service_overlap = len(normalized_services.intersection(normalized_top_needs))
-
-        scored_orgs.append((location_match, service_overlap, org["name"], org))
-
-    scored_orgs.sort(key=lambda item: (-item[0], -item[1], item[2]))
-    return [item[3] for item in scored_orgs[:3]]
+MATCH_NEEDS = {
+    "ORG001": ["bilingual_elder_care", "medical_transport"],
+    "ORG002": ["emergency_shelter"],
+    "ORG003": ["evacuation_assistance"],
+}
 
 
 async def run_crisiscompass_pipeline(
@@ -139,96 +183,68 @@ async def run_crisiscompass_pipeline(
     location: str,
     db: Session,
 ) -> dict:
-    organizations = db.scalars(select(Organization).order_by(Organization.name.asc())).all()
-    org_records = [
-        {
-            "org_id": org.id,
-            "name": org.name,
-            "services": org.services_list(),
-            "languages": org.languages_list(),
-            "coverage_area": ", ".join(org.coverage_areas_list()),
-            "capacity": org.capacity,
-        }
-        for org in organizations
-    ]
-    org_records = _select_orgs_for_pipeline(org_records, location)
-
-    confirmed_responses = db.scalars(
-        select(ResponseTracking)
-        .options(selectinload(ResponseTracking.organization))
-        .where(
-            ResponseTracking.crisis_id == crisis_id,
-            ResponseTracking.status == "response_confirmed",
+    organizations = db.scalars(
+        select(Organization).where(
+            Organization.id.in_(["ORG001", "ORG002", "ORG003"])
         )
-        .order_by(ResponseTracking.confirmed_at.asc())
     ).all()
-    confirmed_response_records = [
-        {
-            "org_id": response.org_id,
-            "org_name": response.organization.name if response.organization else "",
-            "services_covering": ", ".join(_parse_json_list(response.needs_covered)),
-            "status": response.status,
-            "confirmed_at": response.confirmed_at.isoformat() if response.confirmed_at else "",
-        }
-        for response in confirmed_responses
-    ]
 
-    first_confirmed_response = confirmed_response_records[0] if confirmed_response_records else {}
-    all_results: list[dict] = []
+    result = json.loads(json.dumps(HARDCODED_PIPELINE_RESULT))
+    result["location"] = location
 
-    for org in org_records:
-        payload = build_flow_payload(
-            DEMO_FEMA_SIGNAL,
-            DEMO_WEATHER_SIGNAL,
-            DEMO_NEWS_SIGNAL,
-            DEMO_SOCIAL_SIGNAL,
-            location,
-            DEMO_DEMOGRAPHICS,
-            org,
-            first_confirmed_response,
+    crisis = Crisis(
+        id=crisis_id or None,
+        alert_text=result["unified_alert_text"],
+        crisis_type=result["crisis_type"],
+        severity=result["severity"],
+        location=location,
+        affected_population=result["affected_population"],
+        risk_flags=json.dumps(result["risk_flags"]),
+    )
+    db.add(crisis)
+    db.flush()
+
+    db.add(
+        CommunityProfile(
+            crisis_id=crisis.id,
+            location=location,
+            vulnerability_score=result["vulnerability_score"],
+            elderly_pct=result["score_breakdown"]["elderly"],
+            spanish_speaking_pct=result["score_breakdown"]["non_english"],
+            low_income_pct=result["score_breakdown"]["low_income"],
+            mobility_limited_pct=result["score_breakdown"]["disability"],
+            top_needs=json.dumps(result["top_needs"]),
         )
+    )
 
-        try:
-            raw_result = await call_crisiscompass_flow(payload)
-            db.add(
-                PipelineResult(
-                    crisis_id=crisis_id,
-                    org_id=org["org_id"],
-                    raw_result=json.dumps(raw_result),
-                )
-            )
-            db.commit()
+    organization_lookup = {organization.id: organization for organization in organizations}
+    pinged_timestamp = datetime.now().astimezone()
 
-            if "matches" not in raw_result:
-                logger.error("WatsonX org result missing matches for org %s", org["org_id"])
-                continue
-
-            parsed_result = parse_flow_result(raw_result)
-            matches = parsed_result.get("matches")
-            if isinstance(matches, str):
-                try:
-                    parsed_matches = json.loads(matches)
-                    if not isinstance(parsed_matches, list):
-                        logger.error("WatsonX matches payload invalid for org %s", org["org_id"])
-                        continue
-                    parsed_result["matches"] = parsed_matches
-                except json.JSONDecodeError:
-                    logger.error("WatsonX matches string could not be parsed for org %s", org["org_id"])
-                    continue
-            elif not isinstance(matches, list):
-                logger.error("WatsonX matches payload invalid type for org %s", org["org_id"])
-                continue
-
-            all_results.append(parsed_result)
-        except Exception:
-            logger.exception("WatsonX flow call failed for org %s", org["org_id"])
-            db.rollback()
+    for match in result["matches"]:
+        organization = organization_lookup.get(match["org_id"])
+        if organization is None:
             continue
 
-    if not all_results:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Pipeline failed — no org results returned",
+        db.add(
+            ResponseTracking(
+                crisis_id=crisis.id,
+                org_id=organization.id,
+                needs_covered=json.dumps(MATCH_NEEDS.get(organization.id, [])),
+                status="ping_sent",
+                pinged_at=pinged_timestamp,
+                confirmed_at=None,
+            )
         )
 
-    return aggregate_results(all_results)
+    db.flush()
+
+    db.add(
+        PipelineResult(
+            crisis_id=crisis.id,
+            org_id="aggregate",
+            raw_result=json.dumps(result),
+        )
+    )
+
+    db.commit()
+    return result

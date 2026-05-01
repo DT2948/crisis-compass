@@ -42,6 +42,24 @@ export async function simulateGapDetection(
   });
 }
 
+export async function confirmOrgResponse(
+  crisisId: string,
+  orgId: string,
+  needsCovered: string[],
+): Promise<{ status: string }> {
+  return fetchJson<{ status: string }>("/api/response/confirm", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      crisis_id: crisisId,
+      org_id: orgId,
+      needs_covered: needsCovered,
+    }),
+  });
+}
+
 export async function triggerPipeline(location: string): Promise<CrisisDetail> {
   return fetchJson<CrisisDetail>("/api/crisis/trigger", {
     method: "POST",

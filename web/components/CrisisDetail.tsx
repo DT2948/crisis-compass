@@ -55,7 +55,15 @@ function normalizeNeeds(value: unknown): string[] {
   return [];
 }
 
-export function CrisisDetail({ crisis }: { crisis: Crisis }) {
+export function CrisisDetail({
+  crisis,
+  onConfirmResponse,
+  confirmingResponseOrgId,
+}: {
+  crisis: Crisis;
+  onConfirmResponse: (crisisId: string, orgId: string, needsCovered: string[]) => void;
+  confirmingResponseOrgId: string | null;
+}) {
   const topNeeds = normalizeNeeds(crisis.community_profile?.top_needs);
   const visibleResponses = crisis.responses.slice(0, 3);
   const hiddenResponseCount = Math.max(0, crisis.responses.length - visibleResponses.length);
@@ -117,6 +125,18 @@ export function CrisisDetail({ crisis }: { crisis: Crisis }) {
                 <span className="font-medium text-textPrimary">{response.organization.name}</span>
                 <StateBadge state={response.status} />
               </div>
+              {response.status === "ping_sent" && response.org_id === "ORG002" ? (
+                <div className="mt-2">
+                  <button
+                    type="button"
+                    onClick={() => onConfirmResponse(crisis.id, response.org_id, response.needs_covered)}
+                    disabled={confirmingResponseOrgId === response.org_id}
+                    className="inline-flex items-center rounded-sm border border-responseConfirmed/35 bg-responseConfirmed/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-responseConfirmed transition hover:bg-responseConfirmed/15 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {confirmingResponseOrgId === response.org_id ? "Confirming..." : "Confirm Response"}
+                  </button>
+                </div>
+              ) : null}
               <p className="mt-1 leading-5">
                 {response.needs_covered.join(", ")} • {response.organization.capacity} capacity
               </p>
@@ -133,13 +153,13 @@ export function CrisisDetail({ crisis }: { crisis: Crisis }) {
         </div>
       </div>
 
-      <div>
-        <p className="mb-1 text-[10px] uppercase tracking-[0.16em] text-textMuted">
-          Gap Alerts
-        </p>
-        <div className="space-y-2">
-          {crisis.gap_alerts.length > 0 ? (
-            crisis.gap_alerts.map((alert) => (
+      {crisis.gap_alerts.length > 0 ? (
+        <div className="gap-alert-reveal">
+          <p className="mb-1 text-[10px] uppercase tracking-[0.16em] text-textMuted">
+            Gap Alerts
+          </p>
+          <div className="space-y-2">
+            {crisis.gap_alerts.map((alert) => (
               <div
                 key={alert.id}
                 className="rounded-sm border border-gapFlagged/30 bg-danger/10 px-2 py-2"
@@ -149,12 +169,10 @@ export function CrisisDetail({ crisis }: { crisis: Crisis }) {
                   {alert.escalation_recommendation}
                 </p>
               </div>
-            ))
-          ) : (
-            <p className="leading-5 text-textMuted">No active gap alerts for this crisis.</p>
-          )}
+            ))}
+          </div>
         </div>
-      </div>
+      ) : null}
 
       <div className="flex flex-wrap gap-2">
         {crisis.risk_flags.map((tag) => (

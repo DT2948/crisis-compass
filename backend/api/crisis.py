@@ -1,4 +1,5 @@
 import json
+import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
@@ -6,12 +7,9 @@ from sqlalchemy.orm import Session, selectinload
 
 from crisis_utils import build_gap_status, get_aggregated_pipeline_result, get_crisis_or_404, parse_json_list, parse_json_object
 from database import get_db
-from models.community_profile import CommunityProfile
 from models.crisis import Crisis
-from models.gap_alert import GapAlert
-from models.organization import Organization
 from models.response_tracking import ResponseTracking
-from pipeline import DEMO_DEMOGRAPHICS, DEMO_FEMA_SIGNAL, run_crisiscompass_pipeline
+from pipeline import run_crisiscompass_pipeline
 from schemas.crisis import (
     CommunityProfileResponse,
     CrisisDetailResponse,
@@ -146,67 +144,7 @@ async def trigger_crisis_pipeline(
     request: CrisisTriggerRequest,
     db: Session = Depends(get_db),
 ) -> dict:
-    crisis = Crisis(
-        alert_text=DEMO_FEMA_SIGNAL,
-        crisis_type="flood",
-        severity="critical",
-        location=request.location,
-        affected_population=42000,
-        risk_flags=json.dumps(["elderly_residents", "non_english_speakers"]),
-    )
-    db.add(crisis)
-    db.flush()
-
-    organizations = db.scalars(select(Organization).order_by(Organization.name.asc())).all()
-    for organization in organizations:
-        db.add(
-            ResponseTracking(
-                crisis_id=crisis.id,
-                org_id=organization.id,
-                needs_covered=json.dumps(organization.services_list()),
-                status="ping_sent",
-            )
-        )
-    db.commit()
-    db.refresh(crisis)
-
-    aggregated = await run_crisiscompass_pipeline(crisis.id, request.location, db)
-
-    crisis = get_crisis_or_404(db, crisis.id)
-    crisis.alert_text = aggregated.get("unified_alert_text") or aggregated.get("alert_text") or crisis.alert_text
-    crisis.crisis_type = aggregated.get("crisis_type", crisis.crisis_type)
-    crisis.severity = aggregated.get("severity", crisis.severity)
-    crisis.affected_population = aggregated.get("affected_population", crisis.affected_population)
-    crisis.risk_flags = json.dumps(aggregated.get("risk_flags", []))
-    db.add(crisis)
-
-    profile = crisis.community_profiles[0] if crisis.community_profiles else None
-    if profile is None:
-        profile = CommunityProfile(crisis_id=crisis.id, location=crisis.location)
-    profile.location = crisis.location
-    profile.vulnerability_score = aggregated.get("vulnerability_score", 51)
-    profile.elderly_pct = DEMO_DEMOGRAPHICS["elderly_pct"]
-    profile.spanish_speaking_pct = DEMO_DEMOGRAPHICS["non_english_pct"]
-    profile.low_income_pct = DEMO_DEMOGRAPHICS["low_income_pct"]
-    profile.mobility_limited_pct = DEMO_DEMOGRAPHICS["disability_pct"]
-    profile.top_needs = json.dumps(aggregated.get("top_needs", []))
-    db.add(profile)
-    db.flush()
-
-    crisis = get_crisis_or_404(db, crisis.id)
-    gap_status = build_gap_status(crisis, aggregated)
-    if gap_status["gap_detected"]:
-        db.add(
-            GapAlert(
-                crisis_id=crisis.id,
-                unmet_needs=json.dumps(gap_status["unmet_needs"]),
-                alert_message=gap_status["alert_message"],
-                escalation_recommendation=gap_status["escalation_recommendation"],
-            )
-        )
-
-    db.commit()
-    return aggregated
+    return await run_crisiscompass_pipeline(str(uuid.uuid4()), request.location, db)
 
 
 @router.get("/{crisis_id}", response_model=CrisisDetailResponse)
