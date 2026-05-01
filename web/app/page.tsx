@@ -1,12 +1,15 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { CrisisFeed } from "@/components/CrisisFeed";
 import { Header } from "@/components/Header";
+import { SignalIntelligencePanel } from "@/components/SignalIntelligencePanel";
 import { StatusBar } from "@/components/StatusBar";
 import { useCrisisDashboard } from "@/hooks/useCrisisDashboard";
+import { fetchCrisisSources } from "@/lib/api";
+import type { SignalIntelligence } from "@/types/crisis";
 
 const CrisisMap = dynamic(() => import("@/components/Map"), {
   ssr: false,
@@ -29,9 +32,14 @@ export default function DashboardPage() {
     lastUpdatedAt,
     highlightedIds,
     simulateGap,
+    triggeringPipeline,
+    triggerCrisisPipeline,
     refresh,
   } = useCrisisDashboard();
   const [selectedCrisisId, setSelectedCrisisId] = useState<string | null>(null);
+  const [signalIntelligence, setSignalIntelligence] = useState<SignalIntelligence | null>(null);
+  const [signalLoading, setSignalLoading] = useState(false);
+  const [signalError, setSignalError] = useState<string | null>(null);
 
   const selectedCrisis =
     crises.find((crisis) => crisis.id === selectedCrisisId) ?? crises[0] ?? null;
@@ -39,6 +47,34 @@ export default function DashboardPage() {
   function handleSelectCrisis(id: string) {
     setSelectedCrisisId((current) => (current === id ? null : id));
   }
+
+  useEffect(() => {
+    async function loadSignalIntelligence(crisisId: string) {
+      try {
+        setSignalLoading(true);
+        setSignalError(null);
+        const result = await fetchCrisisSources(crisisId);
+        setSignalIntelligence(result);
+      } catch (caught) {
+        setSignalIntelligence(null);
+        setSignalError(
+          caught instanceof Error
+            ? caught.message
+            : "Unable to load source intelligence for this crisis.",
+        );
+      } finally {
+        setSignalLoading(false);
+      }
+    }
+
+    if (!selectedCrisis?.id) {
+      setSignalIntelligence(null);
+      setSignalError(null);
+      return;
+    }
+
+    void loadSignalIntelligence(selectedCrisis.id);
+  }, [selectedCrisis?.id, lastUpdatedAt]);
 
   return (
     <main className="h-screen overflow-hidden bg-transparent px-0 py-0 text-textPrimary">
@@ -49,8 +85,14 @@ export default function DashboardPage() {
             onToggleAutoRefresh={setAutoRefresh}
             crisisCount={crises.length}
             refreshing={refreshing}
-            selectedCrisis={selectedCrisis}
-            onSimulateGap={() => selectedCrisis && simulateGap(selectedCrisis.id)}
+            triggeringPipeline={triggeringPipeline}
+            selectedCrisisId={selectedCrisis?.id ?? null}
+            onSimulateGap={(crisisId) => {
+              void simulateGap(crisisId);
+            }}
+            onTriggerPipeline={() => {
+              void triggerCrisisPipeline();
+            }}
             onRefresh={refresh}
           />
         </div>
@@ -76,13 +118,25 @@ export default function DashboardPage() {
             ) : null}
           </div>
 
-          <div className="min-h-0 w-full overflow-hidden lg:w-[380px] xl:w-[32%]">
-            <CrisisFeed
-              crises={crises}
-              selectedCrisisId={selectedCrisis?.id ?? null}
-              highlightedIds={highlightedIds}
-              onSelectCrisis={handleSelectCrisis}
-            />
+          <div className="flex min-h-0 w-full flex-col overflow-hidden lg:w-[380px] xl:w-[32%]">
+            <div className="min-h-0 flex-1 overflow-hidden">
+              <CrisisFeed
+                crises={crises}
+                selectedCrisisId={selectedCrisis?.id ?? null}
+                highlightedIds={highlightedIds}
+                onSelectCrisis={handleSelectCrisis}
+              />
+            </div>
+            {selectedCrisis ? (
+              <div className="min-h-[280px] max-h-[42%] overflow-hidden border-t border-line">
+                <SignalIntelligencePanel
+                  crisis={selectedCrisis}
+                  sources={signalIntelligence}
+                  loading={signalLoading}
+                  error={signalError}
+                />
+              </div>
+            ) : null}
           </div>
         </section>
 

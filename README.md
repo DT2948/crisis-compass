@@ -2,9 +2,9 @@
 ### Crisis Intelligence & Coordination Platform
 **IBM WatsonX Experimental Learning Lab | April 2026**
 
-CrisisCompass is an AI-powered intelligence and situational awareness platform 
-that aggregates real-time data from multiple sources, builds detailed profiles 
-of affected communities, and delivers targeted, actionable intelligence to 
+CrisisCompass is an AI-powered intelligence and situational awareness platform
+that aggregates real-time data from multiple sources, builds detailed profiles
+of affected communities, and delivers targeted, actionable intelligence to
 relevant relief organizations during active emergencies.
 
 It does not dispatch or direct — it informs.
@@ -40,14 +40,14 @@ pip install -r requirements.txt
 uvicorn main:app --reload
 
 # Frontend
-cd frontend
+cd web
 npm install
 npm run dev
 ```
 
 ## Demo Scenario
-Flash flood in Eastside District, Pennsylvania. High elderly population, 
-significant Spanish-speaking residents. The platform ingests the crisis alert, 
-scores community vulnerability, matches and pings relief organizations, tracks 
-response confirmations, and fires a Gap Alert when bilingual elder care goes 
+Flash flood in Eastside District, Pennsylvania. High elderly population,
+significant Spanish-speaking residents. The platform ingests the crisis alert,
+scores community vulnerability, matches and pings relief organizations, tracks
+response confirmations, and fires a Gap Alert when bilingual elder care goes
 unconfirmed.

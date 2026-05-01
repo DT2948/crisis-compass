@@ -49,6 +49,10 @@ class GapAlertResponse(BaseModel):
     fired_at: datetime
 
 
+class CrisisTriggerRequest(BaseModel):
+    location: str
+
+
 class CrisisSummaryResponse(BaseModel):
     id: str
     alert_text: str
@@ -77,3 +81,16 @@ class ResponseConfirmationRequest(BaseModel):
     crisis_id: str
     org_id: str
     needs_covered: list[str]
+
+
+class SimulateElapsedRequest(BaseModel):
+    crisis_id: str
+
+
+class GapStatusResponse(BaseModel):
+    gap_detected: bool
+    alert_status: str
+    alert_message: str
+    escalation_recommendation: str
+    escalation_org: str
+    unmet_needs: list[str]

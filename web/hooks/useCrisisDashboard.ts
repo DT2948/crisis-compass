@@ -2,7 +2,12 @@
 
 import { startTransition, useEffect, useRef, useState } from "react";
 
-import { fetchActiveCrises, fetchActiveGaps, simulateGapDetection } from "@/lib/api";
+import {
+  fetchActiveCrises,
+  fetchActiveGaps,
+  simulateGapDetection,
+  triggerPipeline,
+} from "@/lib/api";
 import type { CrisisDetail, GapAlert } from "@/types/crisis";
 
 const REFRESH_MS = 10_000;
@@ -18,6 +23,8 @@ interface UseCrisisDashboardResult {
   lastUpdatedAt: number | null;
   highlightedIds: Set<string>;
   simulateGap: (crisisId: string) => Promise<void>;
+  triggeringPipeline: boolean;
+  triggerCrisisPipeline: () => Promise<void>;
   refresh: () => Promise<void>;
 }
 
@@ -53,6 +60,7 @@ export function useCrisisDashboard(): UseCrisisDashboardResult {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null);
   const [highlightedIds, setHighlightedIds] = useState<Set<string>>(new Set());
+  const [triggeringPipeline, setTriggeringPipeline] = useState(false);
   const crisesRef = useRef<CrisisDetail[]>([]);
 
   async function refresh() {
@@ -106,6 +114,23 @@ export function useCrisisDashboard(): UseCrisisDashboardResult {
     }
   }
 
+  async function triggerCrisisPipeline() {
+    try {
+      setError(null);
+      setTriggeringPipeline(true);
+      await triggerPipeline("Eastside District, Philadelphia, Pennsylvania");
+      await refresh();
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Pipeline trigger failed.",
+      );
+    } finally {
+      setTriggeringPipeline(false);
+    }
+  }
+
   useEffect(() => {
     void refresh();
   }, []);
@@ -133,6 +158,8 @@ export function useCrisisDashboard(): UseCrisisDashboardResult {
     lastUpdatedAt,
     highlightedIds,
     simulateGap,
+    triggeringPipeline,
+    triggerCrisisPipeline,
     refresh,
   };
 }

@@ -80,7 +80,39 @@ export interface CrisisListResponse {
 
 export interface GapDetectionResponse {
   gap_detected: boolean;
+  alert_status?: string;
   unmet_needs: string[];
   alert_message: string;
   escalation_recommendation: string;
+  escalation_org?: string;
+}
+
+export interface SignalSource {
+  raw_text: string;
+  timestamp: string;
+}
+
+export interface SignalIntelligence {
+  source_count?: number;
+  signal_confidence?: "high" | "medium" | "low" | string;
+  severity_escalation?: boolean;
+  escalation_reason?: string;
+  unified_alert_text?: string;
+  location?: string;
+  severity?: string;
+  crisis_type?: CrisisType | string;
+  vulnerability_score?: number;
+  fema?: SignalSource;
+  weather?: SignalSource;
+  weather_gov?: SignalSource;
+  news?: SignalSource;
+  social?: SignalSource;
+  FEMA?: SignalSource;
+  "Weather.gov"?: SignalSource;
+  News?: SignalSource;
+  Social?: SignalSource;
+  fema_signal?: SignalSource;
+  weather_signal?: SignalSource;
+  news_signal?: SignalSource;
+  social_signal?: SignalSource;
 }

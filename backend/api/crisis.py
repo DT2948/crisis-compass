@@ -4,15 +4,22 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from crisis_utils import build_gap_status, get_aggregated_pipeline_result, get_crisis_or_404, parse_json_list, parse_json_object
 from database import get_db
+from models.community_profile import CommunityProfile
 from models.crisis import Crisis
+from models.gap_alert import GapAlert
+from models.organization import Organization
 from models.response_tracking import ResponseTracking
+from pipeline import DEMO_DEMOGRAPHICS, DEMO_FEMA_SIGNAL, run_crisiscompass_pipeline
 from schemas.crisis import (
     CommunityProfileResponse,
     CrisisDetailResponse,
     CrisisListResponse,
     CrisisMapPoint,
+    CrisisTriggerRequest,
     CrisisSummaryResponse,
+    GapStatusResponse,
     GapAlertResponse,
     OrganizationResponse,
     ResponseTrackingResponse,
@@ -22,7 +29,7 @@ from schemas.crisis import (
 router = APIRouter(prefix="/crisis", tags=["crisis"])
 
 LOCATION_COORDINATES = {
-    "Eastside District, Pennsylvania": CrisisMapPoint(latitude=40.4412, longitude=-79.9906),
+    "Eastside District, Philadelphia, Pennsylvania": CrisisMapPoint(latitude=39.9526, longitude=-75.1652),
     "North Ridge County, Pennsylvania": CrisisMapPoint(latitude=41.2033, longitude=-77.1945),
 }
 
@@ -32,15 +39,6 @@ RESPONSE_STATE_ORDER = [
     "ping_sent",
     "needs_identified",
 ]
-
-
-def parse_json_list(raw: str) -> list[str]:
-    try:
-        parsed = json.loads(raw or "[]")
-    except json.JSONDecodeError:
-        return []
-    return [item for item in parsed if isinstance(item, str)]
-
 
 def determine_response_state(crisis: Crisis) -> str:
     statuses = {response.status for response in crisis.responses}
@@ -102,9 +100,9 @@ def serialize_crisis_detail(crisis: Crisis) -> CrisisDetailResponse:
                 organization=OrganizationResponse(
                     id=response.organization.id,
                     name=response.organization.name,
-                    services=parse_json_list(response.organization.services),
-                    languages=parse_json_list(response.organization.languages),
-                    coverage_areas=parse_json_list(response.organization.coverage_areas),
+                    services=response.organization.services_list(),
+                    languages=response.organization.languages_list(),
+                    coverage_areas=response.organization.coverage_areas_list(),
                     capacity=response.organization.capacity,
                 ),
             )
@@ -143,9 +141,123 @@ def list_active_crises(db: Session = Depends(get_db)) -> CrisisListResponse:
     return CrisisListResponse(total=len(items), items=items)
 
 
+@router.post("/trigger")
+async def trigger_crisis_pipeline(
+    request: CrisisTriggerRequest,
+    db: Session = Depends(get_db),
+) -> dict:
+    crisis = Crisis(
+        alert_text=DEMO_FEMA_SIGNAL,
+        crisis_type="flood",
+        severity="critical",
+        location=request.location,
+        affected_population=42000,
+        risk_flags=json.dumps(["elderly_residents", "non_english_speakers"]),
+    )
+    db.add(crisis)
+    db.flush()
+
+    organizations = db.scalars(select(Organization).order_by(Organization.name.asc())).all()
+    for organization in organizations:
+        db.add(
+            ResponseTracking(
+                crisis_id=crisis.id,
+                org_id=organization.id,
+                needs_covered=json.dumps(organization.services_list()),
+                status="ping_sent",
+            )
+        )
+    db.commit()
+    db.refresh(crisis)
+
+    aggregated = await run_crisiscompass_pipeline(crisis.id, request.location, db)
+
+    crisis = get_crisis_or_404(db, crisis.id)
+    crisis.alert_text = aggregated.get("unified_alert_text") or aggregated.get("alert_text") or crisis.alert_text
+    crisis.crisis_type = aggregated.get("crisis_type", crisis.crisis_type)
+    crisis.severity = aggregated.get("severity", crisis.severity)
+    crisis.affected_population = aggregated.get("affected_population", crisis.affected_population)
+    crisis.risk_flags = json.dumps(aggregated.get("risk_flags", []))
+    db.add(crisis)
+
+    profile = crisis.community_profiles[0] if crisis.community_profiles else None
+    if profile is None:
+        profile = CommunityProfile(crisis_id=crisis.id, location=crisis.location)
+    profile.location = crisis.location
+    profile.vulnerability_score = aggregated.get("vulnerability_score", 51)
+    profile.elderly_pct = DEMO_DEMOGRAPHICS["elderly_pct"]
+    profile.spanish_speaking_pct = DEMO_DEMOGRAPHICS["non_english_pct"]
+    profile.low_income_pct = DEMO_DEMOGRAPHICS["low_income_pct"]
+    profile.mobility_limited_pct = DEMO_DEMOGRAPHICS["disability_pct"]
+    profile.top_needs = json.dumps(aggregated.get("top_needs", []))
+    db.add(profile)
+    db.flush()
+
+    crisis = get_crisis_or_404(db, crisis.id)
+    gap_status = build_gap_status(crisis, aggregated)
+    if gap_status["gap_detected"]:
+        db.add(
+            GapAlert(
+                crisis_id=crisis.id,
+                unmet_needs=json.dumps(gap_status["unmet_needs"]),
+                alert_message=gap_status["alert_message"],
+                escalation_recommendation=gap_status["escalation_recommendation"],
+            )
+        )
+
+    db.commit()
+    return aggregated
+
+
 @router.get("/{crisis_id}", response_model=CrisisDetailResponse)
 def get_crisis(crisis_id: str, db: Session = Depends(get_db)) -> CrisisDetailResponse:
     crisis = db.scalars(crisis_query().where(Crisis.id == crisis_id)).first()
     if not crisis:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Crisis not found")
     return serialize_crisis_detail(crisis)
+
+
+@router.get("/{crisis_id}/sources")
+def get_crisis_sources(crisis_id: str, db: Session = Depends(get_db)) -> dict:
+    crisis = get_crisis_or_404(db, crisis_id)
+    aggregated = get_aggregated_pipeline_result(db, crisis_id)
+    sources = aggregated.get("sources", {})
+    if not isinstance(sources, dict):
+        sources = parse_json_object(sources if isinstance(sources, str) else "{}")
+    sources["signal_confidence"] = aggregated.get("signal_confidence")
+    severity_escalation = aggregated.get("severity_escalation", False)
+    if isinstance(severity_escalation, str):
+        severity_escalation = severity_escalation.strip().lower() == "true"
+    sources["severity_escalation"] = bool(severity_escalation)
+    sources["escalation_reason"] = aggregated.get("escalation_reason", "")
+    sources["unified_alert_text"] = aggregated.get("unified_alert_text", "")
+    sources["source_count"] = sources.get("source_count", 4)
+    sources["location"] = crisis.location
+    sources["severity"] = crisis.severity
+    sources["crisis_type"] = crisis.crisis_type
+    sources["vulnerability_score"] = (
+        crisis.community_profiles[0].vulnerability_score
+        if crisis.community_profiles
+        else aggregated.get("vulnerability_score")
+    )
+    return sources
+
+
+@router.get("/{crisis_id}/matches")
+def get_crisis_matches(crisis_id: str, db: Session = Depends(get_db)) -> list:
+    aggregated = get_aggregated_pipeline_result(db, crisis_id)
+    matches = aggregated.get("matches", [])
+    if isinstance(matches, list):
+        return matches
+    try:
+        parsed = json.loads(matches)
+        return parsed if isinstance(parsed, list) else []
+    except (TypeError, json.JSONDecodeError):
+        return []
+
+
+@router.get("/{crisis_id}/gap", response_model=GapStatusResponse)
+def get_crisis_gap(crisis_id: str, db: Session = Depends(get_db)) -> GapStatusResponse:
+    crisis = get_crisis_or_404(db, crisis_id)
+    aggregated = get_aggregated_pipeline_result(db, crisis_id)
+    return GapStatusResponse(**build_gap_status(crisis, aggregated))

@@ -8,20 +8,22 @@ export function Header({
   onToggleAutoRefresh,
   crisisCount,
   refreshing,
-  selectedCrisis,
+  triggeringPipeline,
+  selectedCrisisId,
   onSimulateGap,
+  onTriggerPipeline,
   onRefresh,
 }: {
   autoRefresh: boolean;
   onToggleAutoRefresh: (value: boolean) => void;
   crisisCount: number;
   refreshing: boolean;
-  selectedCrisis: CrisisDetail | null;
-  onSimulateGap: () => void;
+  triggeringPipeline: boolean;
+  selectedCrisisId: CrisisDetail["id"] | null;
+  onSimulateGap: (crisisId: string) => void;
+  onTriggerPipeline: () => void;
   onRefresh: () => Promise<void>;
 }) {
-  void selectedCrisis;
-
   return (
     <header className="flex min-h-[50px] items-center justify-between border-b border-line bg-ink px-3 py-2">
       <div className="flex items-center gap-3">
@@ -64,8 +66,22 @@ export function Header({
 
         <button
           type="button"
-          onClick={onSimulateGap}
-          disabled={!selectedCrisis}
+          onClick={onTriggerPipeline}
+          disabled={triggeringPipeline}
+          className="inline-flex items-center gap-2 rounded-sm border border-line bg-transparent px-2.5 py-1.5 text-xs text-textSecondary transition hover:border-primaryHover/40 hover:text-textPrimary disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <PulsingDot active={triggeringPipeline} colorClass="bg-primary" />
+          <span>{triggeringPipeline ? "Triggering..." : "Trigger Pipeline"}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            if (selectedCrisisId) {
+              onSimulateGap(selectedCrisisId);
+            }
+          }}
+          disabled={!selectedCrisisId || triggeringPipeline}
           className="inline-flex items-center rounded-sm border border-line bg-transparent px-2.5 py-1.5 text-xs text-textSecondary transition hover:border-primaryHover/40 hover:text-textPrimary disabled:cursor-not-allowed disabled:opacity-50"
         >
           Simulate Time Elapsed

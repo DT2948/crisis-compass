@@ -3,6 +3,7 @@ import type {
   CrisisListResponse,
   GapAlert,
   GapDetectionResponse,
+  SignalIntelligence,
 } from "@/types/crisis";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -32,11 +33,25 @@ export async function fetchActiveGaps(): Promise<GapAlert[]> {
 export async function simulateGapDetection(
   crisisId: string,
 ): Promise<GapDetectionResponse> {
-  return fetchJson<GapDetectionResponse>("/api/agents/gap-detection", {
+  return fetchJson<GapDetectionResponse>("/api/response/simulate-elapsed", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ crisis_id: crisisId }),
   });
+}
+
+export async function triggerPipeline(location: string): Promise<CrisisDetail> {
+  return fetchJson<CrisisDetail>("/api/crisis/trigger", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ location }),
+  });
+}
+
+export async function fetchCrisisSources(crisisId: string): Promise<SignalIntelligence> {
+  return fetchJson<SignalIntelligence>(`/api/crisis/${crisisId}/sources`);
 }

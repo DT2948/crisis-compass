@@ -44,7 +44,7 @@ export function CrisisDetail({ crisis }: { crisis: Crisis }) {
               Elderly: {crisis.community_profile.elderly_pct}%
             </div>
             <div className="rounded-sm border border-line bg-panelSoft px-2 py-2">
-              Spanish-speaking: {crisis.community_profile.spanish_speaking_pct}%
+              Non-English: {crisis.community_profile.spanish_speaking_pct}%
             </div>
           </div>
         </div>

@@ -25,10 +25,10 @@ def init_db() -> None:
         crisis,
         gap_alert,
         organization,
+        pipeline_result,
         response_tracking,
     )
 
-    Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
 
 
